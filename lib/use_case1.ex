@@ -38,38 +38,40 @@ defmodule MyApp.UseCase1 do
     changeset = Comment.changeset(%Comment{}, %{text: "Hello!"})
     %{id: comment_id} = Repo.insert!(changeset)
 
+    IO.inspect Repo.all(Comment)
+
     attrs = %{
       name: "Updated article",
-      comments: [%{id: comment_id, text: "Update this comment"}, %{text: "Another comment"}]
+      comments: [%{id: comment_id, text: "Update this comment"}, %{text: "And yet another comment"}]
     }
 
-    changeset = Article.changeset(article, attrs)
+    comments = get_comments_with_id(attrs)
+    article = %{article | comments: comments ++ article.comments}
 
-    case changeset do
-      %{valid?: false} ->
-        {:error, %{changeset | action: :insert}}
+    article
+    |> Article.changeset(attrs)
+    |> Repo.update()
 
-      _ ->
-        comment_changesets =
-          Ecto.Changeset.get_change(changeset, :comments, [])
-          |> Enum.map(fn comment_changeset ->
-            case Ecto.Changeset.fetch_change(comment_changeset, :id) do
-              {:ok, id} ->
-                case Repo.get(Comment, id) do
-                  comment ->
-                    # some authorization logic here
-                    comment
-                    |> Comment.changeset(comment_changeset.params)
-                    |> Map.put(:action, :update)
-                end
+    Repo.all(Comment)
+  end
 
-              :error ->
-                comment_changeset
-            end
-          end)
+  defp get_comments_with_id(%{comments: comments}), do:
+    do_get_comments_with_id(comments)
 
-        Ecto.Changeset.put_change(changeset, :comments, comment_changesets)
-        |> Repo.update()
-    end
+  defp get_comments_with_id(%{"comments" => comments}), do:
+    do_get_comments_with_id(comments)
+
+  defp do_get_comments_with_id(comments) do
+    comments
+    |> Enum.filter(fn
+      %{"id" => _} -> true
+      %{:id => _} -> true
+      _ -> false
+    end)
+    |> Enum.map(fn
+      %{"id" => id} -> Repo.get(Comment, id)
+      %{:id => id} -> Repo.get(Comment, id)
+      _ -> false
+    end)
   end
 end

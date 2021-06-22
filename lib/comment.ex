@@ -10,6 +10,6 @@ defmodule MyApp.Comment do
 
   def changeset(struct, attrs) do
     struct
-    |> cast(attrs, [:id, :text])
+    |> cast(attrs, [:text])
   end
 end
